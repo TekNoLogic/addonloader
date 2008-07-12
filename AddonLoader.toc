@@ -1,0 +1,30 @@
+
+## Title: AddonLoader |cff7fff7f -Ace2-|r
+## Notes: Does automatic loading of Load-on-Demand addons that support AddonLoader. Use rMCP or ACP for a GUI. AddonLoader replaces ForkliftGnome.
+## Notes-zhTW: 自動載入支援 AddonLoader 的隨需求載入插件。使用 rMCP 或 ACP 作為圖形用戶介面。AddonLoader 取代 ForkliftGnome。
+## Author: Nymbia, Mikk
+## X-eMail: nymbia@gmail.com
+
+## Interface: 20200
+## Version: 1.0
+
+## LoadWith: ForkliftGnome
+## OptionalDeps: Ace2
+## X-Embeds: Ace2, Babble-2.2
+
+## X-Website: http://www.wowace.com/wiki/AddonLoader
+## X-Category: Miscellaneous
+## X-License: GPL v2
+## X-AceForum: 0
+
+## SavedVariables: AddonLoaderDB
+
+## # LoadOnDemand: 1
+
+embeds.xml
+
+AddonLoader-enUS.lua
+AddonLoader-zhTW.lua
+AddonLoader.lua
+Conditions.lua
+
