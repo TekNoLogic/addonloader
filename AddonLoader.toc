@@ -9,7 +9,7 @@
 ## Version: 2.0
 ## X-Website: http://www.wowace.com/wiki/AddonLoader
 
-## SavedVariablesPerCharacter: AddonLoaderSV
+## SavedVariables: AddonLoaderSV
 
 AddonLoader.lua
 
