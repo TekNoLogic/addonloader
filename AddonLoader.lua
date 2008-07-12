@@ -1,237 +1,151 @@
---[[
-	Copyright (C) 2007 Nymbia
-
-	This program is free software; you can redistribute it and/or modify
-	it under the terms of the GNU General Public License as published by
-	the Free Software Foundation; either version 2 of the License, or
-	(at your option) any later version.
-
-	This program is distributed in the hope that it will be useful,
-	but WITHOUT ANY WARRANTY; without even the implied warranty of
-	MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-	GNU General Public License for more details.
-
-	You should have received a copy of the GNU General Public License along
-	with this program; if not, write to the Free Software Foundation, Inc.,
-	51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
-]]
-local L = AceLibrary("AceLocale-2.2"):new("AddonLoader")
-
-AddonLoader = AceLibrary("AceAddon-2.0"):new("AceConsole-2.0", "AceDB-2.0", "AceEvent-2.0", "AceModuleCore-2.0")
+AddonLoader = {}
 local AddonLoader = AddonLoader
-AddonLoader.slashes = {}
+AddonLoader.events = {}
+AddonLoader.conditiontexts = {}
 
-AddonLoader:SetModuleMixins("AceEvent-2.0", "AceDB-2.0", "AceHook-2.1")
-AddonLoader:RegisterDB("AddonLoaderDB")
-local numaddons = GetNumAddOns()
-local GetAddOnInfo = GetAddOnInfo
-local GetAddOnMetadata = GetAddOnMetadata
 
-local overridesvalidate = {
-	L.None,
-	L.Always,
-	L.AuctionHouse,
-	L.Arena,
-	L.Bank,
-	L.Battleground,
-	L.Combat,
-	L.Crafting,
-	L.Group,
-	L.Guild,
-	L.Instance,
-	L.Mailbox,
-	L.Merchant,
-	L.NotResting,
-	L.PvPFlagged,
-	L.Raid,
-	L.Resting,
-}
+local frame = CreateFrame("Frame", "AddonLoaderFrame")
+AddonLoader.frame = frame  -- easy reference for use in X-LoadOn-Events
 
-local overrides = {
-	[L.Always] = 'X-LoadOn-Always',
-	[L.AuctionHouse] = 'X-LoadOn-AuctionHouse',
-	[L.Arena] = 'X-LoadOn-Arena',
-	[L.Bank] = 'X-LoadOn-Bank',
-	[L.Battleground] = 'X-LoadOn-Battleground',
-	[L.Combat] = 'X-LoadOn-Combat',
-	[L.Crafting] = 'X-LoadOn-Crafting',
-	[L.Group] = 'X-LoadOn-Group',
-	[L.Guild] = 'X-LoadOn-Guild',
-	[L.Instance] = 'X-LoadOn-Instance',
-	[L.Mailbox] = 'X-LoadOn-Mailbox',
-	[L.Merchant] = 'X-LoadOn-Merchant',
-	[L.NotResting] = 'X-LoadOn-NotResting',
-	[L.PvPFlagged] = 'X-LoadOn-PvPFlagged',
-	[L.Raid] = 'X-LoadOn-Raid',
-	[L.Resting] = 'X-LoadOn-Resting',
-}
+function AddonLoader:Print(text) 
+	DEFAULT_CHAT_FRAME:AddMessage("|cFF33FF99AddonLoader|r: ".. tostring(text))
+end
 
-local options = {
-	type = 'group',
-	args = {
-		messages = {
-			name = L["Messages"],
-			desc = L["Show messages in the chat frame when addons are loaded"],
-			type = 'toggle',
-			get = function()
-				return AddonLoader.db.profile.messages
-			end,
-			set = function(v)
-				AddonLoader.db.profile.messages = v
-			end,
-		},
-		overrides = {
-			name = L["Overrides"],
-			desc = L["Set alternate conditions for loading a given addon, overriding those in its toc file. NOTE: These settings do not take effect until a UI reload."],
-			type = 'group',
-			args = {}
-		},
-	},
-}
-
-function AddonLoader:ADDON_LOADED(addon)
-	if addon=="ForkliftGnome" then	-- Keep ForkliftGnome from doing the same work as AddonLoader (and generating errors!)
-		ForkliftGnome.OnEnable = function() end
+function AddonLoader:AddCondition(condname, addonname, metatext)
+	if AddonLoader.conditions[condname] then
+		local cond = AddonLoader.conditions[condname]
+		for k, event in pairs(cond.events) do
+			if not AddonLoader.events[event] then
+				AddonLoader.events[event] = {}
+				frame:RegisterEvent(event)
+			end
+			if not AddonLoader.events[event][addonname] then
+				AddonLoader.events[event][addonname] = {}
+			end
+			AddonLoader.events[event][addonname][condname] = {
+				handler = cond.handler,
+				arg = metatext,
+			}
+		end	
 	end
 end
 
-function AddonLoader:OnInitialize()
-	self:RegisterDefaults('profile', {
-		messages = true,
-		overrides = {
-			['*'] = false,
-		},
-	})
-	self:RegisterChatCommand({'/addonloader','/aloader','/aload'}, options)
-	self:RegisterEvent("ADDON_LOADED");
-end
+-- scan all addons and their metadata for X-LoadOn directives.
+function AddonLoader:ScanAddons()
+	for i = 1, GetNumAddOns() do
+		if IsAddOnLoadOnDemand(i) and not IsAddOnLoaded(i) then
+			-- scan metadata.
+			-- inject events with the correct handlers for all addons.
+			-- register for those events on our frame
+			local name = GetAddOnInfo(i)
+			for condname, cond in pairs(AddonLoader.conditions) do
+				local meta = GetAddOnMetadata(name, condname)
+				if meta then
 
-do
-	local handleLoadAddOn
-	do
-		local loadattempted = {}
-		function handleLoadAddOn(addon)
-			if tonumber(addon) then
-				addon = GetAddOnInfo(addon)
-			end
-			if loadattempted[addon] then
-				return
-			end
-			loadattempted[addon] = true
-			if options.args.overrides.args[addon] then
-				if IsAddOnLoaded(addon) then
-					if AddonLoader.db.profile.messages then
-						AddonLoader:Print(L["Loaded %s."]:format(addon));
+					-- build the textblock as base for overrides
+					if not AddonLoader.conditiontexts[name] then
+						AddonLoader.conditiontexts[name] = ""
 					end
-				else
-					local name, _,_, enabled = GetAddOnInfo(addon);
-					if name and not enabled then
-						-- don't complain
-					else
-						local _, reason = LoadAddOn(addon)
-						AddonLoader:Print(L["Failed to load %s: %s."]:format(addon, reason));
-					end
-				end
-			end
-			for name, module in AddonLoader:IterateModules() do
-				if not module.off then
-					local t = module.addons
-					if name == addon then
-						module:Disable()
-					elseif t and t[addon] then
-						t[addon] = nil
-						if not next(t) then
-							module:Disable()
-						end
-					end
-				end
-			end
-			for _, v in ipairs(AddonLoader.slashes) do
-				hash_SlashCmdList[v] = nil
-			end
-		end
-	end
-	local function get(addon)
-		local value = AddonLoader.db.profile.overrides[addon]
-		if not value then
-			return L.None
-		end
-		for k,v in pairs(overrides) do
-			if v == value then
-				return k
-			end
-		end
-	end
-	local function set(addon,v)
-		if v == L.None then
-			AddonLoader.db.profile.overrides[addon] = false
-		else
-			AddonLoader.db.profile.overrides[addon] = overrides[v]
-		end
-	end
-	
-	function AddonLoader:OnEnable(first)
-		if not first then
-			return
-		end
-		hooksecurefunc('LoadAddOn', handleLoadAddOn)
-		local metadatafields = self.metadatafields
-		local overrides = self.db.profile.overrides
-		local options = options.args.overrides.args
-		for i = 1, numaddons do
-			if IsAddOnLoadOnDemand(i) then
-				local name = GetAddOnInfo(i)
-				local hasfield
-				local alreadyloaded
-				if overrides[name] and overrides[name] == 'X-LoadOn-Always' then
-					metadatafields[overrides[name]](name)
-					hasfield = true
-				elseif overrides[name] then
-					metadatafields[overrides[name]](name)
-					local metadata = GetAddOnMetadata(i, 'X-LoadOn-Slash')
-					if metadata then
-						metadatafields['X-LoadOn-Slash'](name, metadata)
-					end
-					local metadata = GetAddOnMetadata(i, 'X-LoadOn-Execute')
-					if metadata then
-						metadatafields['X-LoadOn-Execute'](name, metadata)
-					end
-					hasfield = true
-				else
-					alreadyloaded = not not IsAddOnLoaded(i)
-					for k,v in pairs(metadatafields) do
-						local metadata = GetAddOnMetadata(i, k)
-						if metadata then
-							hasfield = true
-							if not alreadyloaded then
-								v(name, metadata)
+					AddonLoader.conditiontexts[name] = AddonLoader.conditiontexts[name] .. condname..": "..meta.."\n"
+					-- special handling for hook and events
+					if condname == "X-LoadOn-Events" or condname == "X-LoadOn-Hooks" then
+						for item in meta:gmatch("[^ ,]+") do
+							local metaitem = GetAddOnMetadata(name, "X-LoadOn-"..item)
+							if metaitem then
+								AddonLoader.conditiontexts[name] = AddonLoader.conditiontexts[name].."X-LoadOn-"..item..": "..metaitem.."\n"
 							end
 						end
-					end
-				end
-				if hasfield then
-					options[name] = {
-						name = name,
-						desc = L["Set the loading condition for %s.  NOTE: Does not take effect until a UI reload."]:format(name),
-						type = 'text',
-						get = get,
-						set = set,
-						validate = overridesvalidate,
-						disabled = alreadyloaded,
-						passValue = name,
-					}
+					elseif condname == "X-LoadOn-Execute" then -- special handling for execute
+						for i = 2, 5 do
+							local metaitem = GetAddOnMetadata(name, "X-LoadOn-Execute"..i)
+							if metaitem then
+								AddonLoader.conditiontexts[name] = AddonLoader.conditiontexts[name].."X-LoadOn-Execute"..i..": "..metaitem.."\n"
+							end
+						end
+					end				
+					AddonLoader:AddCondition(condname, name, meta)
 				end
 			end
 		end
-		self.metadatafields = nil
 	end
 end
 
-function AddonLoader.modulePrototype:Disable()
-	self.off = true
-	self.addons = nil
-	self:UnregisterAllEvents()
-	if self.UnhookAll then
-		self:UnhookAll()
+-- this will be called at PLAYER_LOGIN at which point the saved vars should be present
+function AddonLoader:LoadOverrides()
+	if not AddonLoaderSV then
+		AddonLoaderSV = { -- overrides
+			overrides = {},
+		}
+	end
+	AddonLoader.originals = {}
+	for k, v in pairs(AddonLoader.conditiontexts) do
+		AddonLoader.originals[k] = v
+	end
+	for addon, conditiontext in pairs(AddonLoaderSV.overrides) do
+		-- we have an addon lets clear the events for this addon and override unconditionaly.
+		for event, addons in pairs(AddonLoader.events) do
+			addons[addon] = nil -- nuke
+		end
+		AddonLoader.conditiontexts[addon] = conditiontext
+		-- we have a conditiontext override lets do it.
+		for line in conditiontext:gmatch("[^\n]+") do
+			local condname, text = string.match(line, "^([^:]*): (.*)$")
+			if condname and text then
+				AddonLoader:AddCondition(condname, addon, text)
+			end
+		end		
 	end
 end
+
+function AddonLoader:LoadAddOn(name)
+	-- Verify that the addon isn't disabled
+	local enabled = select(4, GetAddOnInfo(name))
+	if not enabled then return false end
+
+	-- Load the addon
+	if not AddonLoaderSV.silent then
+		AddonLoader:Print("Loading " .. name)
+	end
+	local succ, err = LoadAddOn(name)
+	if not succ then
+		AddonLoader:Print("Error loading " .. name .. " (" .. err .. ")")
+		return false, err
+	end
+	return true
+end
+
+
+-- event handler
+local function OnEvent(this, event, ...)
+	if event == "PLAYER_LOGIN" then
+		AddonLoader:ScanAddons()
+		AddonLoader:LoadOverrides()
+	end
+	if AddonLoader.events[event] then
+		--- run the handlers
+		for name, conditions in pairs(AddonLoader.events[event]) do
+			if not IsAddOnLoaded(name) then
+				for condname, condition in pairs(conditions) do
+					if condition.handler(event, name, condition.arg, ...) then
+						AddonLoader:LoadAddOn(name)
+						break
+					end
+				end
+			end
+			-- we do a lazy cleanup here
+			-- if an addon gets loaded by means other than AddonLoader it will be removed from the events list upon next firing of the event.
+			if IsAddOnLoaded(name) then -- cleanup
+				AddonLoader.events[event][name] = nil
+				local found = next(AddonLoader.events[event])
+				if not found then
+					AddonLoader.events[event] = nil
+					frame:UnregisterEvent(event)
+				end
+			end
+		end
+	end
+end
+
+frame:SetScript("OnEvent", OnEvent)
+frame:RegisterEvent("PLAYER_LOGIN")
+

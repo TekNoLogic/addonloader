@@ -1,376 +1,260 @@
---[[
-	Copyright (C) 2007 Nymbia
+local function returnTrue() return true end
 
-	This program is free software; you can redistribute it and/or modify
-	it under the terms of the GNU General Public License as published by
-	the Free Software Foundation; either version 2 of the License, or
-	(at your option) any later version.
-
-	This program is distributed in the hope that it will be useful,
-	but WITHOUT ANY WARRANTY; without even the implied warranty of
-	MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-	GNU General Public License for more details.
-
-	You should have received a copy of the GNU General Public License along
-	with this program; if not, write to the Free Software Foundation, Inc.,
-	51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
-]]
-
-local BZ = AceLibrary("Babble-Zone-2.2")
-local assert = assert
-local pcall = pcall
-local _G = getfenv(0)
-
-local registerIntoModule
-do
-	local function trigger(self)
-		local t = self.addons
-		self:Disable()
-		for k in pairs(t) do
-			LoadAddOn(k)
-		end
-	end
-	function registerIntoModule(modulename, addon)
-		if AddonLoader:HasModule(modulename) then
-			local module = AddonLoader:GetModule(modulename)
-			if module.off then -- this module already triggered
-				LoadAddOn(addon)
-				return nil, true
-			end
-			module.addons[addon] = true
-			return module, true
-		else
-			local module = AddonLoader:NewModule(modulename)
-			module.addons = {[addon] = true}
-			module.Trigger = trigger
-			return module, false
-		end
-	end
+-- There should be a cleaner way to handle this
+local hookenv = setmetatable({}, {__index = getfenv(0)})
+function hookenv.LoadAddOn(name) 
+	return AddonLoader:LoadAddOn(name)
 end
-AddonLoader.metadatafields = {
-	-- Standard Triggers
-	['X-LoadOn-AuctionHouse'] = function(addon, metadata)
-		local module, exists = registerIntoModule('X-LoadOn-AuctionHouse', addon)
-		if not exists then
-			function module:AUCTION_HOUSE_SHOW()
-				self:Trigger()
+
+local delayFrame -- will be filled if needed with a frame for loading addons delayed.
+local BZ -- will be a reference to babble-zone-3.0 if needed
+
+AddonLoader.conditions = {
+	["X-LoadOn-Mailbox"] = {
+		events = {"MAIL_SHOW"},
+		handler = returnTrue
+	},
+	["X-LoadOn-AuctionHouse"] = {
+		events = {"AUCTIONHOUSE_SHOW"},
+		handler = returnTrue
+	},
+	["X-LoadOn-Bank"] = {
+		events = {"BANKFRAME_OPENED"},
+		handler = returnTrue
+	},
+	["X-LoadOn-Arena"] = {
+		events = {"ZONE_CHANGED_NEW_AREA", "PLAYER_ENTERING_WORLD"},
+		handler = function() return select(2, IsInInstance()) == "arena" end,
+	},
+	["X-LoadOn-Battleground"] = {
+		events = {"ZONE_CHANGED_NEW_AREA", "PLAYER_ENTERING_WORLD"},
+		handler = function() return select(2, IsInInstance()) == "pvp" end,
+	},
+	["X-LoadOn-Instance"] = {
+		events = {"ZONE_CHANGED_NEW_AREA", "PLAYER_ENTERING_WORLD"},
+		handler = function()
+			local instanceType = select(2, IsInInstance())
+			return instanceType == "party" or instanceType == "raid"
+		end,
+	},
+	["X-LoadOn-Combat"] = {
+		events = {"PLAYER_REGEN_DISABLED", "PLAYER_ENTERING_WORLD"},
+		handler = function( event, name, arg )
+			if event == "PLAYER_REGEN_DISABLED" then return true end
+			if event == "PLAYER_ENTERING_WORLD" then return InCombatLockdown() end
+		end, 
+	},
+	["X-LoadOn-Crafting"] = {
+		events = {"TRADE_SKILL_SHOW", "CRAFT_SHOW"},
+		handler = returnTrue,
+	},
+	["X-LoadOn-Group"] = {
+		events = {"PARTY_MEMBERS_CHANGED","RAID_ROSTER_UPDATE", "PLAYER_ENTERING_WORLD"},
+		handler = function() return GetNumRaidMembers() > 0 or GetNumPartyMembers() > 0 end,
+	},
+	["X-LoadOn-Merchant"] = {
+		events = {"MERCHANT_SHOW"},
+		handler = returnTrue,
+	},
+	["X-LoadOn-PvPFlagged"] = {
+		events = {"UNIT_FACTION", "PLAYER_ENTERING_WORLD"},
+		handler = function() return UnitIsPVP("player") end,
+	},
+	["X-LoadOn-Raid"] = {
+		events = {"RAID_ROSTER_UPDATE", "PLAYER_ENTERING_WORLD"},
+		handler = function() return GetNumRaidMembers() > 0 end,
+	},
+	["X-LoadOn-Class"] = {
+		events = {"PLAYER_LOGIN"},
+		handler = function(event, name, arg) return tostring(arg):upper() == select(2,UnitClass("player")) end,
+	},
+	["X-LoadOn-Guild"] = {
+		events = {"PLAYER_LOGIN"},
+		handler = function() return IsInGuild() end,
+	},
+	["X-LoadOn-Always"] = {
+		events = {"PLAYER_LOGIN"},
+		handler = function( event, name, arg )
+			if (arg or ""):lower() ~= "delayed" then return true end
+			-- delayed loading, one addon per second
+			if not delayFrame then
+				delayFrame = CreateFrame("Frame")
+				delayFrame.addons = {}
+				delayFrame.elapsed = 0
+				delayFrame:SetScript("OnUpdate", function(self, elapsed)
+					self.elapsed = self.elapsed + elapsed
+					if self.elapsed >= 0.25 then
+						self.elapsed = 0
+						
+						if next(self.addons) then
+							for addon in pairs(self.addons) do
+								AddonLoader:LoadAddOn(addon)
+								self.addons[addon] = nil -- nuke from the list
+								break
+							end
+						else
+							self:Hide()
+						end
+					end
+				end)
 			end
-			module:RegisterEvent('AUCTION_HOUSE_SHOW')
-		end
-	end,
-	['X-LoadOn-Arena'] = function(addon, metadata)
-		local module, exists = registerIntoModule('X-LoadOn-Arena', addon)
-		if not exists then
-			function module:ZONE_CHANGED_NEW_AREA()
-				if select(2, IsInInstance()) == "arena" then
-					self:Trigger()
+			delayFrame.addons[name] = true
+			delayFrame:Show()
+		end,
+	},
+	["X-LoadOn-Resting"] = {
+		events = {"PLAYER_UPDATE_RESTING", "PLAYER_ENTERING_WORLD"},
+		handler = function() return IsResting() end,
+	},
+	["X-LoadOn-NotResting"] = {
+		events = {"PLAYER_UPDATE_RESTING", "PLAYER_ENTERING_WORLD"},
+		handler = function() return not IsResting() end,
+	},
+	["X-LoadOn-Level"] = {
+		events = {"PLAYER_LEVEL_UP", "PLAYER_ENTERING_WORLD"},
+		handler = function(event, name, arg)
+			local level = UnitLevel("player")
+			for chunk in arg:gmatch('([%d%p^,]+)') do
+				if tonumber(chunk) then -- '68'
+					if level == tonumber(chunk) then return true end
+				elseif chunk:match('%+') then -- '40+'
+					if level >= tonumber(chunk:match('%d+')) then return true end
+				elseif chunk:match('%-$') then -- '30-'
+					if level <= tonumber(chunk:match('%d+')) then return true end
+				elseif chunk:match('%d+%-%d+') then -- '20-47'
+					local low, high = tonumber(chunk:match('(%d+)%-(%d+)'))
+					if level >= low and level <= high then return true end
+				end				
+			end
+		end,
+	},
+	["X-LoadOn-Events"] = {
+		events = {"PLAYER_LOGIN"},
+		handler = function(event, name, arg)
+			for metaevent in arg:gmatch("[^ ,]+") do
+				local meta
+				local lookfor = "X-LoadOn-"..metaevent
+				local conditiontext = AddonLoader.conditiontexts[name]
+				for line in conditiontext:gmatch("[^\n]+") do
+					local condname, text = string.match(line, "^([^:]*): (.*)$")
+					if condname and text and condname == lookfor then
+						meta = text
+					end
+				end					
+				if meta then
+					local status, func, err = pcall(loadstring, meta)
+					if func then
+						setfenv(func, hookenv)
+						if not AddonLoader.events[metaevent] then
+							AddonLoader.events[metaevent] = {}
+							AddonLoader.frame:RegisterEvent(metaevent)
+						end
+						if not AddonLoader.events[metaevent][name] then
+							AddonLoader.events[metaevent][name] = {}
+						end
+						AddonLoader.events[metaevent][name][name..metaevent] = { -- name..metaevent to fake a unique condition name
+							handler = func,
+							arg = "",
+						}
+					else
+						geterrorhandler()('## X-LoadOn-'..event..' ('..name..'): '..err)
+					end
 				end
 			end
-			module:RegisterEvent('ZONE_CHANGED_NEW_AREA')
-			module:ZONE_CHANGED_NEW_AREA()
-		end
-	end,
-	['X-LoadOn-Bank'] = function(addon, metadata)
-		local module, exists = registerIntoModule('X-LoadOn-Bank', addon)
-		if not exists then
-			function module:BANKFRAME_OPENED()
-				self:Trigger()
+			-- We specifically DO NOT return true here, this handler just sets up the other conditions. And will remain dorment for the remainder
+		end,
+	},
+	["X-LoadOn-Hooks"] = {
+		events = {"PLAYER_LOGIN"},
+		handler = function(event, name, arg)
+			for hook in arg:gmatch("[^ ,]+") do
+				local meta
+				local lookfor = "X-LoadOn-"..hook
+				local conditiontext = AddonLoader.conditiontexts[name]
+				for line in conditiontext:gmatch("[^\n]+") do
+					local condname, text = string.match(line, "^([^:]*): (.*)$")
+					if condname and text and condname == lookfor then
+						meta = text
+					end
+				end	
+				if meta then
+					local status, func, err = pcall(loadstring, meta)
+					if func then
+						hooksecurefunc( hook, func )
+					else
+						geterrorhandler()('## X-LoadOn-'..hook..' ('..name..'): '..err)
+					end
+				end				
 			end
-			module:RegisterEvent('BANKFRAME_OPENED')
-		end
-	end,
-	['X-LoadOn-Battleground'] = function(addon, metadata) --!!
-		local module, exists = registerIntoModule('X-LoadOn-Battleground', addon)
-		if not exists then
-			function module:ZONE_CHANGED_NEW_AREA()
-				if select(2, IsInInstance()) == "pvp" then
-					self:Trigger()
+			-- We specifically DO NOT return true here, this handler just sets up the other conditions. And will remain dorment for the remainder
+		end,
+	},
+	["X-LoadOn-Slash"] = {
+		events = {"PLAYER_LOGIN"},
+		handler = function(event, name, arg)
+			local name_upper = name:upper():gsub('[^%w]','')
+			local i = 0
+			local slashes = {}
+			for slash in arg:gmatch('([^, ]+)') do
+				i = i + 1
+				if slash:sub(1,1) ~= '/' then
+					slash = '/'..slash
+				end
+				_G['SLASH_'..name_upper..i] = slash
+				slashes[#slashes+1] = slash:upper()
+			end
+			SlashCmdList[name_upper] = function(text)
+				local new = _G['SLASH_'..name_upper..'1']
+				SlashCmdList[name_upper] = nil
+				for _, v in ipairs( slashes ) do
+					hash_SlashCmdList[v] = nil
+				end
+				AddonLoader:LoadAddOn(name)
+				ChatFrame_OpenChat()
+				ChatFrameEditBox:SetText(new..' '..text)
+				ChatEdit_SendText(ChatFrameEditBox,1)
+			end
+			-- We specifically DO NOT return true here, this handler just sets up the other conditions. And will remain dorment for the remainder
+		end,
+	},
+	["X-LoadOn-Zone"] = {
+		events = {"ZONE_CHANGED_NEW_AREA", "PLAYER_ENTERING_WORLD"},
+		handler = function(event, name, arg)
+			if not BZ then
+				BZ = LibStub and LibStub("Babble-Zone-3.0", true) -- silent check for BZ
+			end
+			for zone in arg:gmatch('(%w[^,]+%w)') do
+				if (BZ and GetRealZoneText() == BZ[zone]) or GetRealZoneText() == zone then
+					return true
 				end
 			end
-			module:RegisterEvent('ZONE_CHANGED_NEW_AREA')
-			module:ZONE_CHANGED_NEW_AREA()
-		end
-	end,
-	['X-LoadOn-Instance'] = function(addon, metadata) --!!
-		local module, exists = registerIntoModule('X-LoadOn-Instance', addon)
-		if not exists then
-			function module:ZONE_CHANGED_NEW_AREA()
-				local instanceType = select(2, IsInInstance())
-				if instanceType == 'party' or instanceType == 'raid' then
-					self:Trigger()
+		end,
+	},
+	["X-LoadOn-Execute"] = {
+		events = {"PLAYER_LOGIN"},
+		handler = function(event, name, arg)
+			for i = 2, 5 do
+				local lookfor =  "X-LoadOn-Execute"..i
+				local md 
+				local conditiontext = AdddonLoader.conditiontexts[name]
+				for line in conditiontext:gmatch("[^\n]+") do
+					local condname, text = string.match(line, "^([^:]*): (.*)$")
+					if condname and text and condname == lookfor then
+						md = text
+					end
+				end				
+				if md then
+					arg = arg..' '..md
+				else
+					break
 				end
 			end
-			module:RegisterEvent('ZONE_CHANGED_NEW_AREA')
-			module:ZONE_CHANGED_NEW_AREA()
-		end
-	end,	
-	['X-LoadOn-Combat'] = function(addon, metadata)
-		local module, exists = registerIntoModule('X-LoadOn-Combat', addon)
-		if not exists then
-			function module:PLAYER_REGEN_DISABLED()
-				self:Trigger()
-			end
-			module:RegisterEvent('PLAYER_REGEN_DISABLED')
-			if InCombatLockdown() then
-				module:Trigger()
-			end
-		end
-	end,
-	['X-LoadOn-Crafting'] = function(addon, metadata)
-		local module, exists = registerIntoModule('X-LoadOn-Crafting', addon)
-		if not exists then
-			function module:Open()
-				self:Trigger()
-			end
-			module:RegisterEvent('TRADE_SKILL_SHOW', 'Open')
-			module:RegisterEvent('CRAFT_SHOW', 'Open')
-		end
-	end,
-	['X-LoadOn-Group'] = function(addon, metadata) --!!
-		local module, exists = registerIntoModule('X-LoadOn-Group', addon)
-		if not exists then
-			function module:Changed()
-				if GetNumRaidMembers() > 0 or GetNumPartyMembers() > 0 then
-					self:Trigger()
-				end
-			end
-			module:RegisterEvent('PARTY_MEMBERS_CHANGED', 'Changed')
-			module:RegisterEvent('RAID_ROSTER_UPDATE', 'Changed')
-			module:Changed()
-		end
-	end,
-	['X-LoadOn-Mailbox'] = function(addon, metadata)
-		local module, exists = registerIntoModule('X-LoadOn-Mailbox', addon)
-		if not exists then
-			function module:MAIL_SHOW()
-				self:Trigger()
-			end
-			module:RegisterEvent('MAIL_SHOW')
-		end
-	end,
-	['X-LoadOn-Merchant'] = function(addon, metadata)
-		local module, exists = registerIntoModule('X-LoadOn-Merchant', addon)
-		if not exists then
-			function module:MERCHANT_SHOW()
-				self:Trigger()
-			end
-			module:RegisterEvent('MERCHANT_SHOW')
-		end
-	end,
-	['X-LoadOn-NotResting'] = function(addon, metadata)
-		local module, exists = registerIntoModule('X-LoadOn-NotResting', addon)
-		if not exists then
-			function module:PLAYER_UPDATE_RESTING()
-				if not IsResting() then
-					self:Trigger()
-				end
-			end
-			module:RegisterEvent('PLAYER_UPDATE_RESTING')
-			module:PLAYER_UPDATE_RESTING()
-		end
-	end,
-	['X-LoadOn-PvPFlagged'] = function(addon, metadata) --!!
-		local module, exists = registerIntoModule('X-LoadOn-PvPFlagged', addon)
-		if not exists then
-			function module:UNIT_FACTION()
-				if UnitIsPVP('player') then
-					self:Trigger()
-				end
-			end
-			module:RegisterEvent('UNIT_FACTION')
-			module:UNIT_FACTION()
-		end
-	end,
-	['X-LoadOn-Raid'] = function(addon, metadata) --!!
-		local module, exists = registerIntoModule('X-LoadOn-Raid', addon)
-		if not exists then
-			function module:RAID_ROSTER_UPDATE()
-				if GetNumRaidMembers() > 0 then
-					self:Trigger()
-				end
-			end
-			module:RegisterEvent('RAID_ROSTER_UPDATE')
-			module:RAID_ROSTER_UPDATE()
-		end
-	end,
-	['X-LoadOn-Resting'] = function(addon, metadata)
-		local module, exists = registerIntoModule('X-LoadOn-Resting', addon)
-		if not exists then
-			function module:PLAYER_UPDATE_RESTING()
-				if IsResting() then
-					self:Trigger()
-				end
-			end
-			module:RegisterEvent('PLAYER_UPDATE_RESTING')
-			module:PLAYER_UPDATE_RESTING()
-		end
-	end,
-	-- Special
-	['X-LoadOn-Always'] = function(addon, metadata)
-		if (metadata or ""):lower() ~= 'delayed' then
-			LoadAddOn(addon)
-			return
-		end
-		local module, exists = registerIntoModule('X-LoadOn-Delayed', addon)
-		if not exists then
-			module:ScheduleRepeatingEvent(function()
-				local name = module.addons and next(module.addons)
-				if name then
-					LoadAddOn(name)
-				end
-			end, 1)
-		end
-	end,
-	['X-LoadOn-Class'] = function(addon, metadata)
-		local _, class = UnitClass('player')
-		for loadclass in metadata:gmatch('(%w+)') do
-			if loadclass:upper() == class then
-				return LoadAddOn(addon)
-			end
-		end
-	end,
-	['X-LoadOn-Events'] = function(addon, metadata)
-		local module
-		if AddonLoader:HasModule(addon) then
-			module = AddonLoader:GetModule(addon)
-		else
-			module = AddonLoader:NewModule(addon)
-		end
-		for event in metadata:gmatch('[^ ,]+') do
-			local metadata = GetAddOnMetadata(addon, 'X-LoadOn-'..event)
-			assert(metadata, addon..': X-LoadOn-'..event..' handler not found')
-			assert(not module:IsEventRegistered(event), addon..': '..event..' already registered')
-			local status, func, err = pcall(loadstring, metadata)
-			if not func then
-				return geterrorhandler()('## X-LoadOn-'..event..' ('..addon..'): '..err)
-			end
-			module:RegisterEvent(event, func)
-		end
-	end,
-	['X-LoadOn-Execute'] = function(addon, metadata)
-		for i = 2, 5 do
-			local md = GetAddOnMetadata(addon, 'X-LoadOn-Execute'..i)
-			if md then
-				metadata = metadata..' '..md
+			local status, func, err = pcall(loadstring, arg)
+			if func then
+				func()
 			else
-				break
+				geterrorhandler()('## X-LoadOn-Execute '..name..': '..err)
 			end
-		end
-		local status, closure, err = pcall(loadstring, metadata)
-		if not closure then
-			return geterrorhandler()('## X-LoadOn-Execute '..addon..': '..err)
-		end
-		status, err = pcall(closure)
-		if not status then
-			return geterrorhandler()('## X-LoadOn-Execute '..addon..': '..err)
-		end
-	end,
-	['X-LoadOn-Guild'] = function(addon, metadata)
-		if IsInGuild() then
-			return LoadAddOn(addon)
-		end
-	end,
-	['X-LoadOn-Hooks'] = function(addon, metadata)
-		local module
-		if AddonLoader:HasModule(addon) then
-			module = AddonLoader:GetModule(addon)
-		else
-			module = AddonLoader:NewModule(addon)
-		end
-		for hook in metadata:gmatch('[^ ,]+') do
-			local metadata = GetAddOnMetadata(addon, 'X-LoadOn-'..hook)
-			assert(metadata, addon..': X-LoadOn-'..hook..' handler not found')
-			assert(not module:IsHooked(hook), addon..': '..hook..' already registered')
-			local status, func, err = pcall(loadstring, metadata)
-			if not func then
-				return geterrorhandler()('## X-LoadOn-'..hook..' ('..addon..'): '..err)
-			end
-			module:SecureHook(hook, func)
-		end
-	end,
-	['X-LoadOn-Level'] = function(addon, metadata)
-		local str = 'local level = UnitLevel("player") '
-		for chunk in metadata:gmatch('([%d%p^,]+)') do
-			if tonumber(chunk) then -- '68'
-				str = str..(('if level == %d then return LoadAddOn(%q) end '):format(chunk, addon))
-			elseif chunk:match('%+') then -- '40+'
-				local low = chunk:match('%d+')
-				str = str..(('if level >= %d then return LoadAddOn(%q) end '):format(low, addon))
-			elseif chunk:match('%-$') then -- '30-'
-				local high = chunk:match('%d+')
-				str = str..(('if level <= %d then return LoadAddOn(%q) end '):format(high, addon))
-			elseif chunk:match('%d+%-%d+') then -- '20-47'
-				local low, high = chunk:match('(%d+)%-(%d+)')
-				str = str..(('if level >= %d and level <= %d then return LoadAddOn(%q) end '):format(low, high, addon))
-			else
-				error('## X-LoadOn-Level '..addon..': Invalid level string ('..metadata..')')
-			end
-		end
-		local f = loadstring(str)
-		local module
-		if AddonLoader:HasModule(addon) then
-			module = AddonLoader:GetModule(addon)
-		else
-			module = AddonLoader:NewModule(addon)
-		end
-		module:RegisterEvent('PLAYER_LEVEL_UP',f)
-		f()
-	end,
-	['X-LoadOn-Slash'] = function(addon, metadata)
-		local addon_upper = addon:upper():gsub('[^%w]','')
-		local slashes = AddonLoader.slashes
-		local i = 0
-		for slash in metadata:gmatch('([^, ]+)') do
-			i = i + 1
-			if slash:sub(1,1) ~= '/' then
-				slash = '/'..slash
-			end
-			slashes[#slashes+1] = slash:upper()
-			_G['SLASH_'..addon_upper..i] = slash
-		end
-		local run
-		SlashCmdList[addon_upper] = function(text)
-			local new = _G['SLASH_'..addon_upper..'1']
-			
-			if run then
-				error('already loaded, this slash command should have been overwritten by this addon')
-			end
-			run = true
-			
-			SlashCmdList[addon_upper] = nil
-			
-			LoadAddOn(addon)
-			
-			for _, v in ipairs(AddonLoader.slashes) do
-				hash_SlashCmdList[v] = nil
-			end
-			
-			ChatFrame_OpenChat()
-			ChatFrameEditBox:SetText(new..' '..text)
-			ChatEdit_SendText(ChatFrameEditBox,1)
-		end
-	end,
-	['X-LoadOn-Zone'] = function(addon, metadata)
-		local zones = {}
-		for zone in metadata:gmatch('(%w[^,]+%w)') do
-			if BZ:HasTranslation(zone) then
-				zones[BZ[zone]] = true
-			else
-				error(('## X-LoadOn-Zone '..addon..': Translation doesnt exist for %q'):format(zone))
-			end
-		end
-		local module
-		if AddonLoader:HasModule(addon) then
-			module = AddonLoader:GetModule(addon)
-		else
-			module = AddonLoader:NewModule(addon)
-		end
-		function module:ZONE_CHANGED_NEW_AREA()
-			if zones[GetRealZoneText()] then
-				LoadAddOn(addon)
-			end
-		end
-		module:RegisterEvent('ZONE_CHANGED_NEW_AREA')
-		module:ZONE_CHANGED_NEW_AREA()
-	end,
+		end,
+	},
 }
