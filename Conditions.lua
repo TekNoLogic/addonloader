@@ -2,7 +2,7 @@ local function returnTrue() return true end
 
 -- There should be a cleaner way to handle this
 local hookenv = setmetatable({}, {__index = getfenv(0)})
-function hookenv.LoadAddOn(name) 
+function hookenv.LoadAddOn(name)
 	return AddonLoader:LoadAddOn(name)
 end
 
@@ -42,7 +42,7 @@ AddonLoader.conditions = {
 		handler = function( event, name, arg )
 			if event == "PLAYER_REGEN_DISABLED" then return true end
 			if event == "PLAYER_ENTERING_WORLD" then return InCombatLockdown() end
-		end, 
+		end,
 	},
 	["X-LoadOn-Crafting"] = {
 		events = {"TRADE_SKILL_SHOW", "CRAFT_SHOW"},
@@ -85,7 +85,7 @@ AddonLoader.conditions = {
 					self.elapsed = self.elapsed + elapsed
 					if self.elapsed >= 0.25 then
 						self.elapsed = 0
-						
+
 						if next(self.addons) then
 							for addon in pairs(self.addons) do
 								AddonLoader:LoadAddOn(addon)
@@ -124,7 +124,7 @@ AddonLoader.conditions = {
 				elseif chunk:match('%d+%-%d+') then -- '20-47'
 					local low, high = tonumber(chunk:match('(%d+)%-(%d+)'))
 					if level >= low and level <= high then return true end
-				end				
+				end
 			end
 		end,
 	},
@@ -140,7 +140,7 @@ AddonLoader.conditions = {
 					if condname and text and condname == lookfor then
 						meta = text
 					end
-				end					
+				end
 				if meta then
 					local status, func, err = pcall(loadstring, meta)
 					if func then
@@ -176,7 +176,7 @@ AddonLoader.conditions = {
 					if condname and text and condname == lookfor then
 						meta = text
 					end
-				end	
+				end
 				if meta then
 					local status, func, err = pcall(loadstring, meta)
 					if func then
@@ -184,7 +184,7 @@ AddonLoader.conditions = {
 					else
 						geterrorhandler()('## X-LoadOn-'..hook..' ('..name..'): '..err)
 					end
-				end				
+				end
 			end
 			-- We specifically DO NOT return true here, this handler just sets up the other conditions. And will remain dorment for the remainder
 		end,
@@ -235,14 +235,14 @@ AddonLoader.conditions = {
 		handler = function(event, name, arg)
 			for i = 2, 5 do
 				local lookfor =  "X-LoadOn-Execute"..i
-				local md 
+				local md
 				local conditiontext = AdddonLoader.conditiontexts[name]
 				for line in conditiontext:gmatch("[^\n]+") do
 					local condname, text = string.match(line, "^([^:]*): (.*)$")
 					if condname and text and condname == lookfor then
 						md = text
 					end
-				end				
+				end
 				if md then
 					arg = arg..' '..md
 				else
