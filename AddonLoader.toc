@@ -11,6 +11,10 @@
 
 ## SavedVariables: AddonLoaderSV
 
+LibStub.lua
+CallbackHandler-1.0.lua
+LibDataBroker-1.1\LibDataBroker-1.1.lua
+
 AddonLoader.lua
 
 locale\enUS.lua

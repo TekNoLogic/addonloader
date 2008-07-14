@@ -217,6 +217,21 @@ AddonLoader.conditions = {
 			-- We specifically DO NOT return true here, this handler just sets up the other conditions. And will remain dorment for the remainder
 		end,
 	},
+	["X-LoadOn-LDB-Launcher"] = {
+		events = {"PLAYER_LOGIN"},
+		handler = function(event, name, arg)
+			local texture, brokername = string.split(" ", arg)
+			brokername = brokername or name
+
+			local OnClick, dataobj
+			OnClick = function(...)
+				AddonLoader:LoadAddOn(name)
+				if OnClick ~= dataobj.OnClick then dataobj.OnClick(...) end
+			end
+			dataobj = LibStub:GetLibrary("LibDataBroker-1.1"):NewDataObject(brokername, {launcher = true, tocname = name, icon = texture, OnClick = OnClick})
+			-- We specifically DO NOT return true here, this handler just sets up the other conditions. And will remain dorment for the remainder
+		end,
+	},
 	["X-LoadOn-Zone"] = {
 		events = {"ZONE_CHANGED_NEW_AREA", "PLAYER_ENTERING_WORLD"},
 		handler = function(event, name, arg)
