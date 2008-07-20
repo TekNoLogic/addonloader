@@ -228,7 +228,7 @@ AddonLoader.conditions = {
 				AddonLoader:LoadAddOn(name)
 				if OnClick ~= dataobj.OnClick then dataobj.OnClick(...) end
 			end
-			dataobj = LibStub:GetLibrary("LibDataBroker-1.1"):NewDataObject(brokername, {launcher = true, tocname = name, icon = texture, OnClick = OnClick})
+			dataobj = LibStub:GetLibrary("LibDataBroker-1.1"):NewDataObject(brokername, {type = "launcher", tocname = name, icon = texture, OnClick = OnClick})
 			-- We specifically DO NOT return true here, this handler just sets up the other conditions. And will remain dorment for the remainder
 		end,
 	},
