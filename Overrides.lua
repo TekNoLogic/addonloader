@@ -4,7 +4,7 @@ frame:Hide()
 frame:SetScript("OnShow", function(frame)
 
 	local dropdown, editbox, reset
-	
+
 	local currentAddon
 	for k, v in pairs(AddonLoader.conditiontexts) do
 		currentAddon = k
@@ -15,9 +15,9 @@ frame:SetScript("OnShow", function(frame)
 			reset:Show()
 		else
 			reset:Hide()
-		end	
+		end
 	end
-	
+
 	local function focuslost()
 		local text = editbox:GetText()
 		if text ~= AddonLoader.originals[currentAddon] then
@@ -28,7 +28,7 @@ frame:SetScript("OnShow", function(frame)
 		end
 		updatereset()
 	end
-	
+
 	local function dropdown_onclick()
 		focuslost() -- save values
 		currentAddon = this.value
@@ -36,7 +36,7 @@ frame:SetScript("OnShow", function(frame)
 		UIDropDownMenu_SetSelectedValue(dropdown, currentAddon)
 		editbox:SetText(AddonLoader.conditiontexts[currentAddon])
 	end
-	
+
 	local function initdropdown()
 		local addonCount = 0
 		local info = UIDropDownMenu_CreateInfo()
@@ -70,7 +70,7 @@ frame:SetScript("OnShow", function(frame)
 	title:SetJustifyH("LEFT")
 	title:SetJustifyV("TOP")
 	title:SetText("AddonLoader")
-	
+
 	local check = CreateFrame("CheckButton", "AddonLoaderCheckButton", frame, "UICheckButtonTemplate")
 	check:SetPoint("TOPLEFT", frame, "TOPLEFT", 15, -50)
 	check:SetWidth(24)
@@ -82,7 +82,7 @@ frame:SetScript("OnShow", function(frame)
 		AddonLoaderSV.silent = not AddonLoaderSV.silent
 		check:SetChecked(AddonLoaderSV.silent)
 	end)
-	
+
 	local explain = frame:CreateFontString(nil, "OVERLAY", "GameFontNormal")
 	explain:SetTextColor(1,1,1)
 	explain:SetPoint("TOPLEFT", frame, "TOPLEFT", 15, -80)
@@ -91,20 +91,20 @@ frame:SetScript("OnShow", function(frame)
 	explain:SetJustifyV("TOP")
 	explain:SetHeight(50)
 	explain:SetText(AddonLoader.L.explain)
-	
+
 	local dropdownlabel = frame:CreateFontString(nil, "OVERLAY", "GameFontNormal")
 	dropdownlabel:SetPoint("TOPLEFT", explain, "BOTTOMLEFT", 0, -10)
 	dropdownlabel:SetText("AddOn")
 	dropdownlabel:SetHeight(15)
 	dropdownlabel:SetWidth(50)
-	
+
 	dropdown = CreateFrame("Frame", "AddonLoaderDropDown", frame, "UIDropDownMenuTemplate")
 	dropdown:EnableMouse(true)
 	dropdown:SetPoint("TOPLEFT", dropdownlabel, "TOPRIGHT")
 	UIDropDownMenu_Initialize(dropdown, initdropdown)
 	UIDropDownMenu_SetSelectedValue(dropdown, currentAddon)
-	UIDropDownMenu_SetWidth(160, dropdown)
-	UIDropDownMenu_JustifyText("LEFT", dropdown)
+		UIDropDownMenu_SetWidth(dropdown, 160)
+		UIDropDownMenu_JustifyText(dropdown, "LEFT")
 	AddonLoaderDropDownLeft:SetHeight(50)
 	AddonLoaderDropDownMiddle:SetHeight(50)
 	AddonLoaderDropDownRight:SetHeight(50)
@@ -121,7 +121,7 @@ frame:SetScript("OnShow", function(frame)
 		updatereset()
 	end)
 	updatereset()
-	
+
 	editbox = CreateFrame("EditBox", "AddonLoaderEditBox", frame)
 	editbox:SetPoint("TOP", dropdown, "BOTTOM")
 	editbox:SetPoint("LEFT", 5, 0)
@@ -142,11 +142,11 @@ frame:SetScript("OnShow", function(frame)
 	editbox:SetText(AddonLoader.conditiontexts[currentAddon])
 	editbox:SetScript("OnEditFocusLost", focuslost)
 	editbox:SetScript("OnEscapePressed", editbox.ClearFocus)
-	
+
 	frame:SetScript("OnShow", nil)
 end )
 
 InterfaceOptions_AddCategory(frame)
 
 SLASH_ADDONLOADER1 = "/addonloader"
-SlashCmdList.ADDONLOADER = function() InterfaceOptionsFrame_OpenToFrame(frame) end
+SlashCmdList.ADDONLOADER = function() InterfaceOptionsFrame_OpenToCategory(frame) end

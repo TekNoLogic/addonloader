@@ -1,4 +1,4 @@
-## Interface: 20400
+## Interface: 30000
 
 ## Title: Addon Loader
 ## Notes: Loadmanager for AddOns
@@ -11,8 +11,8 @@
 
 ## SavedVariables: AddonLoaderSV
 
-LibStub.lua
-CallbackHandler-1.0.lua
+LibStub\LibStub.lua
+CallbackHandler-1.0\CallbackHandler-1.0.lua
 LibDataBroker-1.1\LibDataBroker-1.1.lua
 
 AddonLoader.lua

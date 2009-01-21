@@ -33,11 +33,11 @@ end
 -- scan all addons and their metadata for X-LoadOn directives.
 function AddonLoader:ScanAddons()
 	for i = 1, GetNumAddOns() do
-		if IsAddOnLoadOnDemand(i) and not IsAddOnLoaded(i) then
+		local name, _, _, enabled = GetAddOnInfo(i)
+		if enabled and IsAddOnLoadOnDemand(i) and not IsAddOnLoaded(i) then
 			-- scan metadata.
 			-- inject events with the correct handlers for all addons.
 			-- register for those events on our frame
-			local name = GetAddOnInfo(i)
 			for condname, cond in pairs(AddonLoader.conditions) do
 				local meta = GetAddOnMetadata(name, condname)
 				if meta then

@@ -168,22 +168,26 @@ AddonLoader.conditions = {
 		events = {"PLAYER_LOGIN"},
 		handler = function(event, name, arg)
 			for hook in arg:gmatch("[^ ,]+") do
-				local meta
-				local lookfor = "X-LoadOn-"..hook
-				local conditiontext = AddonLoader.conditiontexts[name]
-				for line in conditiontext:gmatch("[^\n]+") do
-					local condname, text = string.match(line, "^([^:]*): (.*)$")
-					if condname and text and condname == lookfor then
-						meta = text
+				if type(_G[hook]) == "function" then
+					local meta
+					local lookfor = "X-LoadOn-"..hook
+					local conditiontext = AddonLoader.conditiontexts[name]
+					for line in conditiontext:gmatch("[^\n]+") do
+						local condname, text = string.match(line, "^([^:]*): (.*)$")
+						if condname and text and condname == lookfor then
+							meta = text
+						end
 					end
-				end
-				if meta then
-					local status, func, err = pcall(loadstring, meta)
-					if func then
-						hooksecurefunc( hook, func )
-					else
-						geterrorhandler()('## X-LoadOn-'..hook..' ('..name..'): '..err)
+					if meta then
+						local status, func, err = pcall(loadstring, meta)
+						if func then
+							hooksecurefunc( hook, func )
+						else
+							geterrorhandler()('## X-LoadOn-'..hook..' ('..name..'): '..err)
+						end
 					end
+				else
+					geterrorhandler()('## X-LoadOn-Hooks: '..arg..' ('..hook..'): not a function')
 				end
 			end
 			-- We specifically DO NOT return true here, this handler just sets up the other conditions. And will remain dorment for the remainder
