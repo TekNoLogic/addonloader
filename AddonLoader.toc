@@ -1,4 +1,8 @@
 ## Interface: 30000
+## X-Curse-Packaged-Version: r72-release
+## X-Curse-Project-Name: AddonLoader
+## X-Curse-Project-ID: addon-loader
+## X-Curse-Repository-ID: wow/addon-loader/mainline
 
 ## Title: Addon Loader
 ## Notes: Loadmanager for AddOns
@@ -9,10 +13,13 @@
 ## Version: 2.0
 ## X-Website: http://www.wowace.com/wiki/AddonLoader
 
-## SavedVariables: AddonLoaderSV
+## SavedVariablesPerCharacter: AddonLoaderSV
 
+#@no-lib-strip@
 LibStub\LibStub.lua
 CallbackHandler-1.0\CallbackHandler-1.0.lua
+#@end-no-lib-strip@
+
 LibDataBroker-1.1\LibDataBroker-1.1.lua
 
 AddonLoader.lua
@@ -20,6 +27,9 @@ AddonLoader.lua
 locale\enUS.lua
 locale\deDE.lua
 locale\esES.lua
+locale\zhCN.lua
+locale\zhTW.lua
+locale\koKR.lua
 
 Conditions.lua
 Overrides.lua

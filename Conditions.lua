@@ -68,6 +68,10 @@ AddonLoader.conditions = {
 		events = {"PLAYER_LOGIN"},
 		handler = function(event, name, arg) return tostring(arg):upper() == select(2,UnitClass("player")) end,
 	},
+	["X-LoadOn-Realm"] = {
+		events = {"PLAYER_LOGIN"},
+		handler = function(event, name, arg) return GetRealmName() == arg end,
+	}, 
 	["X-LoadOn-Guild"] = {
 		events = {"PLAYER_LOGIN"},
 		handler = function() return IsInGuild() end,
@@ -197,26 +201,26 @@ AddonLoader.conditions = {
 		events = {"PLAYER_LOGIN"},
 		handler = function(event, name, arg)
 			local name_upper = name:upper():gsub('[^%w]','')
-			local i = 0
 			local slashes = {}
 			for slash in arg:gmatch('([^, ]+)') do
-				i = i + 1
 				if slash:sub(1,1) ~= '/' then
 					slash = '/'..slash
 				end
-				_G['SLASH_'..name_upper..i] = slash
-				slashes[#slashes+1] = slash:upper()
-			end
-			SlashCmdList[name_upper] = function(text)
-				local new = _G['SLASH_'..name_upper..'1']
-				SlashCmdList[name_upper] = nil
-				for _, v in ipairs( slashes ) do
-					hash_SlashCmdList[v] = nil
+				-- below could be slightly optimized but my scoping skills fail me today, it works though :p
+				_G['SLASH_'..string.sub(slash:upper(),2)..'1'] = slash
+				slashes[#slashes+1] = string.sub(slash:upper(), 2)
+				SlashCmdList[string.sub(slash:upper(),2)] = function(text)
+					local new = _G['SLASH_'..string.sub(slash:upper(),2)..'1']
+					for _, v in ipairs( slashes ) do
+						_G['SLASH_'..v..'1'] = nil
+						SlashCmdList[v] = nil
+						hash_SlashCmdList['/'..v] = nil
+					end
+					AddonLoader:LoadAddOn(name)
+					ChatFrame_OpenChat()
+					ChatFrameEditBox:SetText(new..' '..text)
+					ChatEdit_SendText(ChatFrameEditBox,1)
 				end
-				AddonLoader:LoadAddOn(name)
-				ChatFrame_OpenChat()
-				ChatFrameEditBox:SetText(new..' '..text)
-				ChatEdit_SendText(ChatFrameEditBox,1)
 			end
 			-- We specifically DO NOT return true here, this handler just sets up the other conditions. And will remain dorment for the remainder
 		end,
@@ -255,7 +259,7 @@ AddonLoader.conditions = {
 			for i = 2, 5 do
 				local lookfor =  "X-LoadOn-Execute"..i
 				local md
-				local conditiontext = AdddonLoader.conditiontexts[name]
+				local conditiontext = AddonLoader.conditiontexts[name]
 				for line in conditiontext:gmatch("[^\n]+") do
 					local condname, text = string.match(line, "^([^:]*): (.*)$")
 					if condname and text and condname == lookfor then

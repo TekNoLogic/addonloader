@@ -1,6 +1,8 @@
 local frame = CreateFrame("Frame", nil, UIParent)
 frame.name = "Addon Loader"
 frame:Hide()
+local WotLK = string.match(GetBuildInfo(), "^3.")
+
 frame:SetScript("OnShow", function(frame)
 
 	local dropdown, editbox, reset
@@ -103,8 +105,13 @@ frame:SetScript("OnShow", function(frame)
 	dropdown:SetPoint("TOPLEFT", dropdownlabel, "TOPRIGHT")
 	UIDropDownMenu_Initialize(dropdown, initdropdown)
 	UIDropDownMenu_SetSelectedValue(dropdown, currentAddon)
+	if WotLK then
 		UIDropDownMenu_SetWidth(dropdown, 160)
 		UIDropDownMenu_JustifyText(dropdown, "LEFT")
+	else
+		UIDropDownMenu_SetWidth(160, dropdown)
+		UIDropDownMenu_JustifyText("LEFT", dropdown)
+	end
 	AddonLoaderDropDownLeft:SetHeight(50)
 	AddonLoaderDropDownMiddle:SetHeight(50)
 	AddonLoaderDropDownRight:SetHeight(50)
