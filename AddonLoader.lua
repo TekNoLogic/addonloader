@@ -7,7 +7,7 @@ AddonLoader.conditiontexts = {}
 local frame = CreateFrame("Frame", "AddonLoaderFrame")
 AddonLoader.frame = frame  -- easy reference for use in X-LoadOn-Events
 
-function AddonLoader:Print(text) 
+function AddonLoader:Print(text)
 	DEFAULT_CHAT_FRAME:AddMessage("|cFF33FF99AddonLoader|r: ".. tostring(text))
 end
 
@@ -26,7 +26,7 @@ function AddonLoader:AddCondition(condname, addonname, metatext)
 				handler = cond.handler,
 				arg = metatext,
 			}
-		end	
+		end
 	end
 end
 
@@ -62,7 +62,7 @@ function AddonLoader:ScanAddons()
 								AddonLoader.conditiontexts[name] = AddonLoader.conditiontexts[name].."X-LoadOn-Execute"..i..": "..metaitem.."\n"
 							end
 						end
-					end				
+					end
 					AddonLoader:AddCondition(condname, name, meta)
 				end
 			end
@@ -93,7 +93,7 @@ function AddonLoader:LoadOverrides()
 			if condname and text then
 				AddonLoader:AddCondition(condname, addon, text)
 			end
-		end		
+		end
 	end
 end
 
