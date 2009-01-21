@@ -1,5 +1,5 @@
 ## Interface: 30000
-## X-Curse-Packaged-Version: r72-release
+## X-Curse-Packaged-Version: r74
 ## X-Curse-Project-Name: AddonLoader
 ## X-Curse-Project-ID: addon-loader
 ## X-Curse-Repository-ID: wow/addon-loader/mainline
