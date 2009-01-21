@@ -9,6 +9,8 @@
 ## Version: 2.0
 ## X-Website: http://www.wowace.com/wiki/AddonLoader
 
+## OptionalDeps: tekErr
+
 ## SavedVariables: AddonLoaderSV
 
 LibStub\LibStub.lua
