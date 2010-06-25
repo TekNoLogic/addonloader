@@ -218,8 +218,8 @@ AddonLoader.conditions = {
 					end
 					AddonLoader:LoadAddOn(name)
 					ChatFrame_OpenChat()
-					ChatFrameEditBox:SetText(new..' '..text)
-					ChatEdit_SendText(ChatFrameEditBox,1)
+					ChatFrame1EditBox:SetText(new..' '..text)
+					ChatEdit_SendText(ChatFrame1EditBox,1)
 				end
 			end
 			-- We specifically DO NOT return true here, this handler just sets up the other conditions. And will remain dorment for the remainder
