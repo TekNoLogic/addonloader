@@ -71,7 +71,7 @@ AddonLoader.conditions = {
 	["X-LoadOn-Realm"] = {
 		events = {"PLAYER_LOGIN"},
 		handler = function(event, name, arg) return GetRealmName() == arg end,
-	}, 
+	},
 	["X-LoadOn-Guild"] = {
 		events = {"PLAYER_LOGIN"},
 		handler = function() return IsInGuild() end,
@@ -241,7 +241,7 @@ AddonLoader.conditions = {
 		end,
 	},
 	["X-LoadOn-Zone"] = {
-		events = {"ZONE_CHANGED_NEW_AREA", "PLAYER_ENTERING_WORLD", "ZONE_CHANGED_INDOORS", "MINIMAP_ZONE_CHANGED"},
+		events = {"ZONE_CHANGED", "ZONE_CHANGED_NEW_AREA", "PLAYER_ENTERING_WORLD", "ZONE_CHANGED_INDOORS", "MINIMAP_ZONE_CHANGED"},
 		handler = function(event, name, arg)
 			if not BZ then
 				BZ = LibStub and LibStub("Babble-Zone-3.0", true) -- silent check for BZ
@@ -249,7 +249,7 @@ AddonLoader.conditions = {
 			local subzone = string.trim(GetSubZoneText()) -- yeah really...
 			local realzone = GetRealZoneText()
 			for zone in arg:gmatch('(%w[^,]+%w)') do
-				if (BZ and (realzone == BZ[zone] or subzone == BZ[zone])) or 
+				if (BZ and (realzone == BZ[zone] or subzone == BZ[zone])) or
 					realzone == zone or subzone == zone then
 					return true
 				end
